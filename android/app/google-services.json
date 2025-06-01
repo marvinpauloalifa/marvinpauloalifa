@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "797114728845",
+    "project_id": "farmacia2pdm",
+    "storage_bucket": "farmacia2pdm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:797114728845:android:b7c4f466f73b0aa44efdc4",
+        "android_client_info": {
+          "package_name": "com.example.farmacia2pdm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVfaZe6SRyi0UsYesYtN8ut6CpX_3DsIs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
