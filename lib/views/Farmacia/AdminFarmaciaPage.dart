@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../CriarUsers/CriarAdminFarmacia.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AdminFarmaciaPage extends StatefulWidget {
   const AdminFarmaciaPage({super.key});
@@ -11,84 +10,100 @@ class AdminFarmaciaPage extends StatefulWidget {
 }
 
 class _AdminFarmaciaPageState extends State<AdminFarmaciaPage> {
-  String nomeFarmacia = "Administração da Farmácia";
+  String adminNome = '';
+  String adminEmail = '';
+  String idFarmacia = '';
 
   @override
   void initState() {
     super.initState();
-    _carregarNomeFarmacia();
+    carregarDadosAdmin();
   }
 
-  Future<void> _carregarNomeFarmacia() async {
+  Future<void> carregarDadosAdmin() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      nomeFarmacia = prefs.getString('nomeFarmacia') ?? "Administração da Farmácia";
+      adminNome = prefs.getString('admin_nome') ?? '';
+      adminEmail = prefs.getString('admin_email') ?? '';
+      idFarmacia = prefs.getString('admin_idFarmacia') ?? '';
     });
+  }
+
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/loginAdmin');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.green.shade50,
       appBar: AppBar(
-        title: Text(nomeFarmacia),
-        backgroundColor: Colors.green[400],
-        foregroundColor: Colors.white,
+        title: const Text("Painel do Administrador"),
+        backgroundColor: Colors.green,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Sair',
+          ),
+        ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ElevatedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/registerFarmacia'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[400],
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: const Icon(Icons.edit, color: Colors.white),
-              label: const Text(
-                'Editar Informações da Farmácia',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ),
+            Text("Bem-vindo, $adminNome",
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
+            const SizedBox(height: 8),
+            Text("Email: $adminEmail", style: const TextStyle(fontSize: 16)),
+            Text("ID da Farmácia: $idFarmacia", style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 32),
+
+            const Text("Gerenciamento", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/gerirMedicamentos'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[400],
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: const Icon(Icons.medical_services, color: Colors.white),
-              label: const Text(
-                'Listar Medicamentos da Farmácia',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
+
+            _buildOption(
+              icon: Icons.medical_services,
+              label: 'Ver Medicamentos',
+              onTap: () {
+                Navigator.pushNamed(context, '/listarMedicamentos');
+              },
             ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/gerirStock'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green[400],
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              icon: const Icon(Icons.storage, color: Colors.white),
-              label: const Text(
-                'Gerir Stock de Medicamentos',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
+            _buildOption(
+              icon: Icons.inventory_2,
+              label: 'Gerir Stock',
+              onTap: () {
+                Navigator.pushNamed(context, '/gerirStock');
+              },
+            ),
+            _buildOption(
+              icon: Icons.info_outline,
+              label: 'Informações da Farmácia',
+              onTap: () {
+                Navigator.pushNamed(context, '/infoFarmacia');
+              },
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildOption({required IconData icon, required String label, required VoidCallback onTap}) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: ListTile(
+        leading: Icon(icon, color: Colors.green),
+        title: Text(label, style: const TextStyle(fontSize: 16)),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: onTap,
       ),
     );
   }

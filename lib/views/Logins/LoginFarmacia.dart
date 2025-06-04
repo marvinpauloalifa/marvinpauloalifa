@@ -1,8 +1,7 @@
-import 'package:farmacia2pdm/views/Farmacia/AdminFarmaciaPage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LoginFarmacia extends StatefulWidget {
   const LoginFarmacia({super.key});
@@ -14,40 +13,31 @@ class LoginFarmacia extends StatefulWidget {
 class _LoginFarmaciaState extends State<LoginFarmacia> {
   final _formKey = GlobalKey<FormState>();
   final usernameController = TextEditingController();
-  final idFarmaciaController = TextEditingController();
   final senhaController = TextEditingController();
+
   bool isLoading = false;
 
-  Future<void> _loginAdminFarmacia() async {
+  Future<void> _loginFarmacia() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => isLoading = true);
 
     final username = usernameController.text.trim();
-    final idFarmacia = idFarmaciaController.text.trim();
     final senha = senhaController.text.trim();
 
     try {
       final doc = await FirebaseFirestore.instance
-          .collection('admin_farmacia')
+          .collection('farmacias')
           .doc(username)
           .get();
 
       if (!doc.exists) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Usuário não encontrado.')),
-        );
+        _mostrarMensagem('Farmácia não encontrada.');
         return;
       }
 
       final email = doc.get('email');
-      final idFarmaciaArmazenado = doc.get('idFarmacia');
-
-      if (idFarmacia != idFarmaciaArmazenado) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ID da farmácia incorreto.')),
-        );
-        return;
-      }
+      final idFarmacia = doc.id;
 
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
@@ -55,138 +45,124 @@ class _LoginFarmaciaState extends State<LoginFarmacia> {
       );
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('admin_username', username);
-      await prefs.setString('admin_email', email);
-      await prefs.setString('admin_idFarmacia', idFarmacia);
+      await prefs.setString('id_farmacia', idFarmacia);
+      await prefs.setString('nome_farmacia', doc.get('nome'));
+      await prefs.setString('email_farmacia', email);
 
       Navigator.pushReplacementNamed(context, '/adminFarmacia');
     } on FirebaseAuthException catch (e) {
-      String mensagemErro;
-      if (e.code == 'user-not-found') {
-        mensagemErro = 'Usuário não encontrado.';
-      } else if (e.code == 'wrong-password') {
-        mensagemErro = 'Senha incorreta.';
-      } else if (e.code == 'invalid-email') {
-        mensagemErro = 'Email inválido.';
-      } else {
-        mensagemErro = 'Erro ao fazer login. Tente novamente.';
-      }
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(mensagemErro)));
+      String erro = switch (e.code) {
+        'user-not-found' => 'Email não encontrado.',
+        'wrong-password' => 'Senha incorreta.',
+        'invalid-email' => 'Email inválido.',
+        _ => 'Erro ao fazer login.',
+      };
+      _mostrarMensagem(erro);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tente novamente.')),
-      );
+      _mostrarMensagem('Erro inesperado. Verifique sua conexão.');
     } finally {
       setState(() => isLoading = false);
     }
   }
 
+  void _mostrarMensagem(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
+    );
+  }
+
   void _irParaCriarConta() {
-    Navigator.pushNamed(context, '/criarAdmin').then((_) => setState(() {}));
+    Navigator.pushNamed(context, '/criarFarmacia');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Login  - Administrador",
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFa8e063), Color(0xFF56ab2f)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Center(
+          child: SingleChildScrollView(
+            child: Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
               ),
-              const SizedBox(height: 24),
-              Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    TextFormField(
-                      controller: usernameController,
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Informe o username'
-                          : null,
-                      decoration: InputDecoration(
-                        hintText: 'Username do Administrador',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+              elevation: 10,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Login da Farmácia',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: idFarmaciaController,
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Insira o ID da farmácia'
-                          : null,
-                      decoration: InputDecoration(
-                        hintText: 'ID da Farmácia',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                      const SizedBox(height: 24),
+                      TextFormField(
+                        controller: usernameController,
+                        decoration: const InputDecoration(
+                          labelText: 'ID/Nome da Farmácia',
+                          border: OutlineInputBorder(),
                         ),
+                        validator: (value) =>
+                        value == null || value.isEmpty ? 'Informe o ID' : null,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: senhaController,
-                      obscureText: true,
-                      validator: (value) =>
-                      value == null || value.isEmpty ? 'Insira a senha' : null,
-                      decoration: InputDecoration(
-                        hintText: 'Senha',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: senhaController,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Senha',
+                          border: OutlineInputBorder(),
                         ),
+                        validator: (value) =>
+                        value == null || value.isEmpty ? 'Informe a senha' : null,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: isLoading ? null : _loginAdminFarmacia,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.greenAccent.shade400,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: isLoading ? null : _loginFarmacia,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade700,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          child: isLoading
+                              ? const CircularProgressIndicator(color: Colors.white)
+                              : const Text(
+                            'Entrar',
+                            style: TextStyle(color: Colors.white, fontSize: 16),
                           ),
                         ),
-                        child: isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text(
-                          'Login',
-                          style:
-                          TextStyle(fontSize: 16, color: Colors.white),
+                      ),
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: _irParaCriarConta,
+                        child: const Text(
+                          'Não tem uma conta? Registre-se aqui.',
+                          style: TextStyle(color: Colors.green),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text("Ainda não tem conta? "),
-                        GestureDetector(
-                          onTap: _irParaCriarConta,
-                          child: const Text(
-                            "Registe-se",
-                            style: TextStyle(color: Colors.green),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),

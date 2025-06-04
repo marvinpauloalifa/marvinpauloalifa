@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 
 class ListarMedicamentos extends StatefulWidget {
@@ -10,111 +11,121 @@ class ListarMedicamentos extends StatefulWidget {
 }
 
 class _ListarMedicamentosState extends State<ListarMedicamentos> {
-  List<Map<String, String>> medicamentos = [];
+  List<Map<String, dynamic>> medicamentos = [];
+  String? idFarmacia;
 
   @override
   void initState() {
     super.initState();
-    _carregarMedicamentos();
+    _carregarIdFarmacia();
+  }
+
+  Future<void> _carregarIdFarmacia() async {
+    final prefs = await SharedPreferences.getInstance();
+    idFarmacia = prefs.getString('id_farmacia');
+    if (idFarmacia != null) {
+      await _carregarMedicamentos();
+    }
   }
 
   Future<void> _carregarMedicamentos() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? medicamentosSalvos = prefs.getStringList('medicamentos');
+    final firestore = FirebaseFirestore.instance;
+    final snapshot = await firestore
+        .collection('farmacias')
+        .doc(idFarmacia)
+        .collection('medicamentos')
+        .get();
 
-    if (medicamentosSalvos != null) {
-      setState(() {
-        medicamentos = medicamentosSalvos
-            .map((e) => Map<String, String>.from({
-          'nome': e.split('|')[0],
-          'categoria': e.split('|')[1],
-          'alcunha': e.split('|')[2],
-          'descricao': e.split('|')[3],
-        }))
-            .toList();
-      });
+    setState(() {
+      medicamentos = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'id': doc.id,
+          'nome': data['nome'] ?? '',
+          'categoria': data['categoria'] ?? '',
+          'alcunha': data['alcunha'] ?? '',
+          'descricao': data['descricao'] ?? '',
+        };
+      }).toList();
+
+    });
+  }
+
+  Future<void> _salvarMedicamento(Map<String, String> medicamento,
+      {String? docId}) async {
+    final firestore = FirebaseFirestore.instance;
+    final ref = firestore
+        .collection('farmacias')
+        .doc(idFarmacia)
+        .collection('medicamentos');
+
+    if (docId != null) {
+      await ref.doc(docId).set(medicamento);
     } else {
-      // Adicionando 5 medicamentos de exemplo
-      setState(() {
-        medicamentos = [
-          {'nome': 'Paracetamol', 'categoria': 'Analgesico', 'alcunha': 'Panadol', 'descricao': 'Alivia dor e febre'},
-          {'nome': 'Ibuprofeno', 'categoria': 'Anti-inflamatório', 'alcunha': 'Advil', 'descricao': 'Reduz inflamação e dor'},
-          {'nome': 'Amoxicilina', 'categoria': 'Antibiótico', 'alcunha': 'Amoxil', 'descricao': 'Tratamento de infecções bacterianas'},
-          {'nome': 'Dipirona', 'categoria': 'Analgesico', 'alcunha': 'Novalgina', 'descricao': 'Alivia dor e febre'},
-          {'nome': 'Omeprazol', 'categoria': 'Antiácido', 'alcunha': 'Losec', 'descricao': 'Tratamento de refluxo e úlceras gástricas'},
-        ];
-      });
-      _salvarMedicamentos();
+      await ref.add(medicamento);
     }
+
+    _carregarMedicamentos(); // Atualiza a lista
   }
 
-  Future<void> _salvarMedicamentos() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> medicamentosString = medicamentos
-        .map((med) =>
-    '${med['nome']}|${med['categoria']}|${med['alcunha']}|${med['descricao']}')
-        .toList();
-    await prefs.setStringList('medicamentos', medicamentosString);
+  Future<void> _removerMedicamento(String docId) async {
+    final firestore = FirebaseFirestore.instance;
+    final ref = firestore
+        .collection('farmacias')
+        .doc(idFarmacia)
+        .collection('medicamentos');
+
+    await ref.doc(docId).delete();
+    _carregarMedicamentos();
   }
 
-  void _adicionarEditarMedicamento([int? index]) {
-    TextEditingController nomeController = TextEditingController();
-    TextEditingController categoriaController = TextEditingController();
-    TextEditingController alcunhaController = TextEditingController();
-    TextEditingController descricaoController = TextEditingController();
-
-    // Preenche os campos caso seja edição
-    if (index != null) {
-      nomeController.text = medicamentos[index]['nome']!;
-      categoriaController.text = medicamentos[index]['categoria']!;
-      alcunhaController.text = medicamentos[index]['alcunha']!;
-      descricaoController.text = medicamentos[index]['descricao']!;
-    }
+  void _adicionarEditarMedicamento([Map<String, String>? medExistente]) {
+    TextEditingController nomeController =
+    TextEditingController(text: medExistente?['nome'] ?? '');
+    TextEditingController categoriaController =
+    TextEditingController(text: medExistente?['categoria'] ?? '');
+    TextEditingController alcunhaController =
+    TextEditingController(text: medExistente?['alcunha'] ?? '');
+    TextEditingController descricaoController =
+    TextEditingController(text: medExistente?['descricao'] ?? '');
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(index == null ? "Adicionar Medicamento" : "Editar Medicamento"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildTextField("Nome", nomeController),
-              _buildTextField("Categoria", categoriaController),
-              _buildTextField("Alcunha", alcunhaController),
-              _buildTextField("Descrição", descricaoController),
-            ],
+          title: Text(medExistente == null
+              ? "Adicionar Medicamento"
+              : "Editar Medicamento"),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildTextField("Nome", nomeController),
+                _buildTextField("Categoria", categoriaController),
+                _buildTextField("Alcunha", alcunhaController),
+                _buildTextField("Descrição", descricaoController),
+              ],
+            ),
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
               child: const Text("Cancelar"),
+              onPressed: () => Navigator.of(context).pop(),
             ),
-            TextButton(
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: Text(medExistente == null ? "Adicionar" : "Salvar"),
               onPressed: () {
                 final novoMedicamento = {
-                  'nome': nomeController.text,
-                  'categoria': categoriaController.text,
-                  'alcunha': alcunhaController.text,
-                  'descricao': descricaoController.text,
+                  'nome': nomeController.text.trim(),
+                  'categoria': categoriaController.text.trim(),
+                  'alcunha': alcunhaController.text.trim(),
+                  'descricao': descricaoController.text.trim(),
                 };
 
-                setState(() {
-                  if (index == null) {
-                    // Adiciona o novo medicamento
-                    medicamentos.add(novoMedicamento);
-                  } else {
-                    // Edita o medicamento existente
-                    medicamentos[index] = novoMedicamento;
-                  }
-                });
-
-                _salvarMedicamentos();
+                final docId = medExistente?['id'];
+                _salvarMedicamento(novoMedicamento, docId: docId);
                 Navigator.of(context).pop();
               },
-              child: Text(index == null ? "Adicionar" : "Salvar Alterações"),
             ),
           ],
         );
@@ -122,17 +133,18 @@ class _ListarMedicamentosState extends State<ListarMedicamentos> {
     );
   }
 
-  void _removerMedicamento(int index) {
-    setState(() {
-      medicamentos.removeAt(index);
-    });
-    _salvarMedicamentos();
-  }
-
-  Widget _buildTextField(String label, TextEditingController controller) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(labelText: label),
+  Widget _buildTextField(
+      String label, TextEditingController controller) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          border:
+          OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
     );
   }
 
@@ -140,48 +152,63 @@ class _ListarMedicamentosState extends State<ListarMedicamentos> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Lista de Medicamentos"),
-        backgroundColor: Colors.green[400],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            ElevatedButton(
-              onPressed: () => _adicionarEditarMedicamento(),
-              child: const Text("Adicionar Medicamento"),
+        title: const Text("Medicamentos da Farmácia"),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.green, Colors.lightGreen],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView.builder(
-                itemCount: medicamentos.length,
-                itemBuilder: (context, index) {
-                  final medicamento = medicamentos[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    child: ListTile(
-                      title: Text(medicamento['nome']!),
-                      subtitle: Text('${medicamento['categoria']} - ${medicamento['alcunha']}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () => _adicionarEditarMedicamento(index),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            onPressed: () => _removerMedicamento(index),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _adicionarEditarMedicamento(),
+        backgroundColor: Colors.green,
+        child: const Icon(Icons.add),
+      ),
+      body: medicamentos.isEmpty
+          ? const Center(child: Text("Nenhum medicamento cadastrado."))
+          : ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: medicamentos.length,
+        itemBuilder: (context, index) {
+          final med = medicamentos[index];
+          return Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 5,
+            margin: const EdgeInsets.only(bottom: 16),
+            child: ListTile(
+              title: Text(
+                med['nome'] ?? '',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                "${med['categoria']} | ${med['alcunha']}\n${med['descricao']}",
+                style: const TextStyle(height: 1.4),
+              ),
+              isThreeLine: true,
+              trailing: Wrap(
+                spacing: 10,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.orange),
+                    onPressed: () =>
+                        _adicionarEditarMedicamento(med.cast<String, String>()),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () =>
+                        _removerMedicamento(med['id'] ?? ''),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

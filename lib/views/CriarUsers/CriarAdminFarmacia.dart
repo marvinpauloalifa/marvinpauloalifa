@@ -15,7 +15,6 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
   final nomeCompletoController = TextEditingController();
   final emailController = TextEditingController();
   final usernameController = TextEditingController();
-  final idFarmaciaController = TextEditingController();
   final senhaController = TextEditingController();
   final confirmarSenhaController = TextEditingController();
   bool isLoading = false;
@@ -26,7 +25,6 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
     final nomeCompleto = nomeCompletoController.text.trim();
     final email = emailController.text.trim();
     final username = usernameController.text.trim();
-    final idFarmacia = idFarmaciaController.text.trim();
     final senha = senhaController.text.trim();
     final confirmarSenha = confirmarSenhaController.text.trim();
 
@@ -43,6 +41,9 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
       final credenciais = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: senha);
 
+      // Gerar ID da farmácia com base no nome e username
+      final idFarmacia = "farmacia.${nomeCompleto.toLowerCase().replaceAll(' ', '.')}.${username.toLowerCase()}";
+
       await FirebaseFirestore.instance
           .collection('admin_farmacia')
           .doc(username)
@@ -51,11 +52,9 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
         'email': email,
         'username': username,
         'idFarmacia': idFarmacia,
-        'senha': senha,
         'uid': credenciais.user!.uid,
       });
 
-      // Salvar no SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('admin_nome', nomeCompleto);
       await prefs.setString('admin_email', email);
@@ -79,138 +78,128 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "Criar Conta - Admin",
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Nome Completo
-                TextFormField(
-                  controller: nomeCompletoController,
-                  validator: (value) =>
-                  value == null || value.isEmpty ? 'Informe o nome completo' : null,
-                  decoration: InputDecoration(
-                    hintText: 'Nome completo',
-                    prefixIcon: const Icon(Icons.person, color: Colors.green),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Email
-                TextFormField(
-                  controller: emailController,
-                  validator: (value) =>
-                  value == null || value.isEmpty ? 'Informe o email' : null,
-                  decoration: InputDecoration(
-                    hintText: 'Email',
-                    prefixIcon: const Icon(Icons.email, color: Colors.green),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Username
-                TextFormField(
-                  controller: usernameController,
-                  validator: (value) =>
-                  value == null || value.isEmpty ? 'Informe o username' : null,
-                  decoration: InputDecoration(
-                    hintText: 'Username',
-                    prefixIcon: const Icon(Icons.account_circle, color: Colors.green),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // ID Farmácia
-                TextFormField(
-                  controller: idFarmaciaController,
-                  validator: (value) =>
-                  value == null || value.isEmpty ? 'Informe o ID da farmácia' : null,
-                  decoration: InputDecoration(
-                    hintText: 'ID da Farmácia',
-                    prefixIcon: const Icon(Icons.local_hospital, color: Colors.green),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Senha
-                TextFormField(
-                  controller: senhaController,
-                  obscureText: true,
-                  validator: (value) =>
-                  value == null || value.isEmpty ? 'Informe a senha' : null,
-                  decoration: InputDecoration(
-                    hintText: 'Senha',
-                    prefixIcon: const Icon(Icons.lock, color: Colors.green),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Confirmar Senha
-                TextFormField(
-                  controller: confirmarSenhaController,
-                  obscureText: true,
-                  validator: (value) =>
-                  value == null || value.isEmpty ? 'Confirme a senha' : null,
-                  decoration: InputDecoration(
-                    hintText: 'Confirmar Senha',
-                    prefixIcon: const Icon(Icons.lock_outline, color: Colors.green),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Botão Criar Conta
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: isLoading ? null : _criarConta,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.greenAccent.shade400,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF66BB6A), Color(0xFF2E7D32)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
+            child: Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 6,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        "Criar Conta - Admin",
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
                       ),
-                    ),
-                    child: isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                      'Criar Conta',
-                      style: TextStyle(fontSize: 16, color: Colors.white),
-                    ),
+                      const SizedBox(height: 24),
+
+                      // Nome completo
+                      TextFormField(
+                        controller: nomeCompletoController,
+                        validator: (value) =>
+                        value == null || value.isEmpty ? 'Informe o nome completo' : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Nome completo',
+                          prefixIcon: Icon(Icons.person, color: Colors.green),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Email
+                      TextFormField(
+                        controller: emailController,
+                        validator: (value) =>
+                        value == null || value.isEmpty ? 'Informe o email' : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.email, color: Colors.green),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Username
+                      TextFormField(
+                        controller: usernameController,
+                        validator: (value) =>
+                        value == null || value.isEmpty ? 'Informe o username' : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Username',
+                          prefixIcon: Icon(Icons.account_circle, color: Colors.green),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Senha
+                      TextFormField(
+                        controller: senhaController,
+                        obscureText: true,
+                        validator: (value) =>
+                        value == null || value.isEmpty ? 'Informe a senha' : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Senha',
+                          prefixIcon: Icon(Icons.lock, color: Colors.green),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Confirmar senha
+                      TextFormField(
+                        controller: confirmarSenhaController,
+                        obscureText: true,
+                        validator: (value) =>
+                        value == null || value.isEmpty ? 'Confirme a senha' : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Confirmar senha',
+                          prefixIcon: Icon(Icons.lock_outline, color: Colors.green),
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Botão Criar Conta
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: isLoading ? null : _criarConta,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade700,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                          child: isLoading
+                              ? const CircularProgressIndicator(color: Colors.white)
+                              : const Text(
+                            'Criar Conta',
+                            style: TextStyle(fontSize: 16, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),

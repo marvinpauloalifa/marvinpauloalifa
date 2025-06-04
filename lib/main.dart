@@ -1,4 +1,4 @@
-import 'package:farmacia2pdm/views/Farmacia/EditarMed.dart';
+import 'package:farmacia2pdm/views/Farmacia/EditarDadosFarmacia.dart';
 import 'package:farmacia2pdm/views/Farmacia/AdminFarmaciaPage.dart';
 import 'package:farmacia2pdm/views/CriarUsers/CriarAdminFarmacia.dart';
 import 'package:farmacia2pdm/views/Farmacia/GerirStock.dart';

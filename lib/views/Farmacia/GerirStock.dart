@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class GerirStock extends StatefulWidget {
   const GerirStock({Key? key}) : super(key: key);
@@ -13,6 +14,9 @@ class _GerirStockState extends State<GerirStock> {
   List<Map<String, dynamic>> estoque = [];
   List<Map<String, String>> medicamentosCadastrados = [];
 
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+  String farmaciaId = '';
+
   @override
   void initState() {
     super.initState();
@@ -20,6 +24,8 @@ class _GerirStockState extends State<GerirStock> {
   }
 
   Future<void> _carregarDados() async {
+    final prefs = await SharedPreferences.getInstance();
+    farmaciaId = prefs.getString('id_farmacia') ?? '';
     await _carregarMedicamentos();
     await _carregarEstoque();
   }
@@ -29,19 +35,7 @@ class _GerirStockState extends State<GerirStock> {
     List<String>? medicamentosSalvos = prefs.getStringList('medicamentos');
 
     if (medicamentosSalvos == null || medicamentosSalvos.isEmpty) {
-      medicamentosCadastrados = [
-        {'nome': 'Paracetamol', 'categoria': 'Analgesico', 'alcunha': 'Panadol', 'descricao': 'Alivia dor e febre'},
-        {'nome': 'Ibuprofeno', 'categoria': 'Anti-inflamatório', 'alcunha': 'Advil', 'descricao': 'Reduz inflamação e dor'},
-        {'nome': 'Amoxicilina', 'categoria': 'Antibiótico', 'alcunha': 'Amoxil', 'descricao': 'Tratamento de infecções bacterianas'},
-        {'nome': 'Dipirona', 'categoria': 'Analgesico', 'alcunha': 'Novalgina', 'descricao': 'Alivia dor e febre'},
-        {'nome': 'Omeprazol', 'categoria': 'Antiácido', 'alcunha': 'Losec', 'descricao': 'Tratamento de refluxo e úlceras gástricas'},
-      ];
-
-      List<String> medicamentosString = medicamentosCadastrados.map((med) {
-        return '${med['nome']}|${med['categoria']}|${med['alcunha']}|${med['descricao']}';
-      }).toList();
-
-      await prefs.setStringList('medicamentos', medicamentosString);
+      medicamentosCadastrados = [];
     } else {
       medicamentosCadastrados = medicamentosSalvos.map((e) {
         final parts = e.split('|');
@@ -66,7 +60,7 @@ class _GerirStockState extends State<GerirStock> {
           return {
             'nome': parts[0],
             'dataAtualizacao': parts[1],
-            'estado': int.parse(parts[2]),
+            'estado': parts[2],
             'preco': parts[3],
             'quantidade': int.parse(parts[4]),
           };
@@ -81,6 +75,23 @@ class _GerirStockState extends State<GerirStock> {
       return '${item['nome']}|${item['dataAtualizacao']}|${item['estado']}|${item['preco']}|${item['quantidade']}';
     }).toList();
     await prefs.setStringList('estoque', estoqueString);
+  }
+
+  Future<void> _atualizarFirebase(String nome, String preco, int quantidade) async {
+    final estado = quantidade > 0 ? 'disponível' : 'indisponível';
+    final data = {
+      'preco': preco,
+      'quantidade': quantidade,
+      'estado': estado,
+      'dataAtualizacao': DateFormat('dd/MM/yyyy').format(DateTime.now()),
+    };
+
+    await firestore
+        .collection('farmacias')
+        .doc(farmaciaId)
+        .collection('medicamentos')
+        .doc(nome.toLowerCase().replaceAll(' ', '_'))
+        .set(data, SetOptions(merge: true));
   }
 
   void _adicionarNovoStock() {
@@ -116,6 +127,7 @@ class _GerirStockState extends State<GerirStock> {
               }).toList(),
               onChanged: (value) => selectedNome = value,
             ),
+            const SizedBox(height: 10),
             TextField(
               controller: quantidadeController,
               decoration: const InputDecoration(labelText: 'Quantidade'),
@@ -134,18 +146,18 @@ class _GerirStockState extends State<GerirStock> {
             child: const Text('Cancelar'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               final quantidade = int.tryParse(quantidadeController.text) ?? 0;
               final preco = precoController.text.trim();
 
-              if (selectedNome == null || selectedNome!.isEmpty || preco.isEmpty || quantidade < 0) {
+              if (selectedNome == null || preco.isEmpty || quantidade < 0) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Preencha todos os campos corretamente!')),
                 );
                 return;
               }
 
-              final estado = quantidade > 0 ? 1 : -1;
+              final estado = quantidade > 0 ? 'disponível' : 'indisponível';
 
               setState(() {
                 estoque.add({
@@ -157,12 +169,9 @@ class _GerirStockState extends State<GerirStock> {
                 });
               });
 
-              _salvarEstoque();
+              await _salvarEstoque();
+              await _atualizarFirebase(selectedNome!, preco, quantidade);
               Navigator.pop(context);
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Stock de "$selectedNome" adicionado com sucesso!')),
-              );
             },
             child: const Text('Adicionar'),
           ),
@@ -201,7 +210,7 @@ class _GerirStockState extends State<GerirStock> {
             child: const Text('Cancelar'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               final novaQuantidade = int.tryParse(quantidadeController.text) ?? -1;
               final novoPreco = precoController.text.trim();
 
@@ -212,7 +221,7 @@ class _GerirStockState extends State<GerirStock> {
                 return;
               }
 
-              final novoEstado = novaQuantidade > 0 ? 1 : -1;
+              final novoEstado = novaQuantidade > 0 ? 'disponível' : 'indisponível';
 
               setState(() {
                 estoque[index] = {
@@ -224,7 +233,8 @@ class _GerirStockState extends State<GerirStock> {
                 };
               });
 
-              _salvarEstoque();
+              await _salvarEstoque();
+              await _atualizarFirebase(medicamento['nome'], novoPreco, novaQuantidade);
               Navigator.pop(context);
             },
             child: const Text('Salvar'),
@@ -246,11 +256,18 @@ class _GerirStockState extends State<GerirStock> {
             child: const Text('Cancelar'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
+              String nome = estoque[index]['nome'];
               setState(() {
                 estoque.removeAt(index);
               });
-              _salvarEstoque();
+              await _salvarEstoque();
+              await firestore
+                  .collection('farmacias')
+                  .doc(farmaciaId)
+                  .collection('medicamentos')
+                  .doc(nome.toLowerCase().replaceAll(' ', '_'))
+                  .delete();
               Navigator.pop(context);
             },
             child: const Text('Remover', style: TextStyle(color: Colors.red)),
@@ -265,15 +282,23 @@ class _GerirStockState extends State<GerirStock> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gerir Estoque de Medicamentos'),
-        backgroundColor: Colors.green[400],
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.green, Colors.lightGreen],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _adicionarNovoStock,
         child: const Icon(Icons.add),
-        backgroundColor: Colors.green[400],
+        backgroundColor: Colors.green,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: estoque.isEmpty
             ? const Center(child: Text('Nenhum medicamento em stock.'))
             : ListView.builder(
@@ -281,17 +306,21 @@ class _GerirStockState extends State<GerirStock> {
           itemBuilder: (context, index) {
             final medicamento = estoque[index];
             return Card(
+              color: Colors.white,
+              elevation: 4,
               margin: const EdgeInsets.symmetric(vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               child: ListTile(
-                title: Text(medicamento['nome']),
+                contentPadding: const EdgeInsets.all(16),
+                title: Text(medicamento['nome'], style: const TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text(
-                  'Estado: ${medicamento['estado'] == 1 ? "Disponível" : "Indisponível"}\n'
+                  'Estado: ${medicamento['estado']}\n'
                       'Preço: ${medicamento['preco']} MZN | Quantidade: ${medicamento['quantidade']}\n'
                       'Última atualização: ${medicamento['dataAtualizacao']}',
                 ),
                 leading: Icon(
-                  medicamento['estado'] == 1 ? Icons.check_circle : Icons.cancel,
-                  color: medicamento['estado'] == 1 ? Colors.green : Colors.red,
+                  medicamento['estado'] == 'disponível' ? Icons.check_circle : Icons.cancel,
+                  color: medicamento['estado'] == 'disponível' ? Colors.green : Colors.red,
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -302,8 +331,8 @@ class _GerirStockState extends State<GerirStock> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete),
-                      onPressed: () => _removerStock(index),
                       color: Colors.red,
+                      onPressed: () => _removerStock(index),
                     ),
                   ],
                 ),

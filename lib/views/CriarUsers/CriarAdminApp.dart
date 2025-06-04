@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-
 class CriarAdminApp extends StatefulWidget {
   const CriarAdminApp({super.key});
 
@@ -18,23 +17,22 @@ class _CriarAdminAppState extends State<CriarAdminApp> {
   final TextEditingController nomeController = TextEditingController();
   bool isLoading = false;
 
-  // Função para criar o admin no Firebase
   Future<void> _criarAdmin() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => isLoading = true);
 
     try {
-      // Criando o usuário no Firebase Authentication
-      final UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
         email: emailController.text.trim(),
         password: senhaController.text.trim(),
       );
 
-      // Criando um documento de admin no Firestore
-      final adminRef = FirebaseFirestore.instance.collection('admins').doc(userCredential.user?.uid);
+      final adminRef = FirebaseFirestore.instance
+          .collection('admins')
+          .doc(userCredential.user?.uid);
 
-      // Salvando os dados do admin no Firestore
       await adminRef.set({
         'nome': nomeController.text.trim(),
         'email': emailController.text.trim(),
@@ -46,11 +44,12 @@ class _CriarAdminAppState extends State<CriarAdminApp> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Admin criado com sucesso!")),
       );
+
+      Navigator.pop(context); // Ou redirecionar para login/admin
     } catch (e) {
       setState(() => isLoading = false);
-
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Erro ao criar o admin.")),
+        SnackBar(content: Text("Erro ao criar o admin: $e")),
       );
     }
   }
@@ -58,53 +57,99 @@ class _CriarAdminAppState extends State<CriarAdminApp> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Criar Admin")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              TextFormField(
-                controller: nomeController,
-                decoration: const InputDecoration(labelText: 'Nome'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor, insira o nome';
-                  }
-                  return null;
-                },
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.green, Colors.lightGreenAccent],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        padding: const EdgeInsets.all(32),
+        child: Center(
+          child: SingleChildScrollView(
+            child: Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 8,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        "Criar Administrador",
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      TextFormField(
+                        controller: nomeController,
+                        decoration: InputDecoration(
+                          hintText: 'Nome',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        validator: (value) =>
+                        value == null || value.isEmpty ? 'Insira o nome' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: emailController,
+                        decoration: InputDecoration(
+                          hintText: 'Email',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        validator: (value) =>
+                        value == null || value.isEmpty ? 'Insira o email' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: senhaController,
+                        obscureText: true,
+                        decoration: InputDecoration(
+                          hintText: 'Senha',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        validator: (value) =>
+                        value == null || value.length < 6
+                            ? 'Mínimo 6 caracteres'
+                            : null,
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: isLoading ? null : _criarAdmin,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.greenAccent[400],
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: isLoading
+                              ? const CircularProgressIndicator(color: Colors.white)
+                              : const Text(
+                            'Criar Admin',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              TextFormField(
-                controller: emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor, insira o e-mail';
-                  }
-                  return null;
-                },
-              ),
-              TextFormField(
-                controller: senhaController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Senha'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor, insira a senha';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-              isLoading
-                  ? const CircularProgressIndicator()
-                  : ElevatedButton(
-                onPressed: _criarAdmin,
-                child: const Text('Criar Admin'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
