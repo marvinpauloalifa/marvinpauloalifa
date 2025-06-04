@@ -19,7 +19,7 @@ class _UserPageState extends State<UserPage> {
   LatLng? _currentPosition;
   final Set<Marker> _markers = {};
   File? _imageFile;
-  late CameraController _cameraController;
+  CameraController? _cameraController;
   bool _isCameraReady = false;
 
   @override
@@ -31,31 +31,38 @@ class _UserPageState extends State<UserPage> {
 
   @override
   void dispose() {
-    _cameraController.dispose();
+    _cameraController?.dispose();
     super.dispose();
   }
 
   Future<void> _initializeCamera() async {
-    final cameras = await availableCameras();
-    final firstCamera = cameras.first;
+    try {
+      final cameras = await availableCameras();
+      final firstCamera = cameras.first;
 
-    _cameraController = CameraController(
-      firstCamera,
-      ResolutionPreset.medium,
-    );
+      _cameraController = CameraController(
+        firstCamera,
+        ResolutionPreset.medium,
+      );
 
-    await _cameraController.initialize();
-    if (mounted) {
+      await _cameraController!.initialize();
+
+      if (mounted) {
+        setState(() {
+          _isCameraReady = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro ao inicializar câmera: $e');
       setState(() {
-        _isCameraReady = true;
+        _isCameraReady = false;
       });
     }
   }
 
   Future<void> _determinePosition() async {
     LocationPermission permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
+    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
       return;
     }
 
@@ -76,17 +83,16 @@ class _UserPageState extends State<UserPage> {
   }
 
   Future<void> _takePicture() async {
-    if (!_isCameraReady || !_cameraController.value.isInitialized) {
+    if (!_isCameraReady || _cameraController == null || !_cameraController!.value.isInitialized) {
       return;
     }
 
     try {
-      final XFile picture = await _cameraController.takePicture();
+      final XFile picture = await _cameraController!.takePicture();
       setState(() {
         _imageFile = File(picture.path);
       });
 
-      // Mostra um diálogo com a foto tirada
       if (_imageFile != null) {
         await showDialog(
           context: context,
@@ -163,8 +169,7 @@ class _UserPageState extends State<UserPage> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding:
-          EdgeInsets.symmetric(horizontal: width * 0.05, vertical: height * 0.02),
+          padding: EdgeInsets.symmetric(horizontal: width * 0.05, vertical: height * 0.02),
           child: Column(
             children: [
               Container(
@@ -197,23 +202,19 @@ class _UserPageState extends State<UserPage> {
                                       Navigator.pop(context);
                                       Navigator.push(
                                         context,
-                                        MaterialPageRoute(
-                                            builder: (context) => const LoginPage()),
+                                        MaterialPageRoute(builder: (context) => const LoginPage()),
                                       );
                                     },
                                   ),
                                   const Divider(),
                                   ListTile(
-                                    leading:
-                                    const Icon(Icons.local_pharmacy, color: Colors.green),
-                                    title:
-                                    const Text("Registar-se como nova Farmacia"),
+                                    leading: const Icon(Icons.local_pharmacy, color: Colors.green),
+                                    title: const Text("Registar-se como nova Farmacia"),
                                     onTap: () {
                                       Navigator.pop(context);
                                       Navigator.push(
                                         context,
-                                        MaterialPageRoute(
-                                            builder: (context) => const RegistoFarmacias()),
+                                        MaterialPageRoute(builder: (context) => const RegistoFarmacias()),
                                       );
                                     },
                                   ),
@@ -233,8 +234,7 @@ class _UserPageState extends State<UserPage> {
                         decoration: InputDecoration(
                           hintText: "Pesquisar medicamento",
                           border: InputBorder.none,
-                          contentPadding:
-                          EdgeInsets.symmetric(horizontal: width * 0.04),
+                          contentPadding: EdgeInsets.symmetric(horizontal: width * 0.04),
                         ),
                       ),
                     ),
@@ -248,7 +248,6 @@ class _UserPageState extends State<UserPage> {
 
               SizedBox(height: height * 0.02),
 
-              // Mostra a imagem selecionada/tipada se existir
               if (_imageFile != null)
                 Container(
                   height: height * 0.2,
@@ -256,7 +255,6 @@ class _UserPageState extends State<UserPage> {
                   child: Image.file(_imageFile!, fit: BoxFit.cover),
                 ),
 
-              // Mapa
               Expanded(
                 child: _currentPosition == null
                     ? const Center(child: CircularProgressIndicator())

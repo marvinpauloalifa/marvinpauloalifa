@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "797114728845",
-    "project_id": "farmacia2pdm",
-    "storage_bucket": "farmacia2pdm.firebasestorage.app"
+    "project_number": "288810801599",
+    "project_id": "farmaciamedifinder",
+    "storage_bucket": "farmaciamedifinder.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:797114728845:android:b7c4f466f73b0aa44efdc4",
+        "mobilesdk_app_id": "1:288810801599:android:76e3e5a66c8150c8a2a90a",
         "android_client_info": {
           "package_name": "com.example.farmacia2pdm"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDVfaZe6SRyi0UsYesYtN8ut6CpX_3DsIs"
+          "current_key": "AIzaSyCYuqHPnhDlZ3lK4wJ4gJ4d4SQJ7W6q9zU"
         }
       ],
       "services": {

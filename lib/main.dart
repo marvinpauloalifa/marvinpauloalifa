@@ -21,13 +21,12 @@ void main() async {
   if (kIsWeb) {
     await Firebase.initializeApp(
       options: const FirebaseOptions(
-          apiKey: "AIzaSyD3Iiunay3kJR5Xn_Dp_4uTGsWOyBHwtCU",
-          authDomain: "farmaciapdm-4bab9.firebaseapp.com",
-          projectId: "farmaciapdm-4bab9",
-          storageBucket: "farmaciapdm-4bab9.appspot.com",
-          messagingSenderId: "948651031691",
-          appId: "1:948651031691:web:ff27995d3dbb7c678ba88e",
-
+            apiKey: "AIzaSyDY_kFitAPLjNFc9TRmVuwz4UoB7Gr_fKU",
+            authDomain: "farmaciamedifinder.firebaseapp.com",
+            projectId: "farmaciamedifinder",
+            storageBucket: "farmaciamedifinder.firebasestorage.app",
+            messagingSenderId: "288810801599",
+            appId: "1:288810801599:web:630e87a3d994a056a2a90a"
       ),
     );
   } else {
