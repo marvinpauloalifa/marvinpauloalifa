@@ -60,8 +60,7 @@ class _ListarMedicamentosState extends State<ListarMedicamentos> {
         .collection('medicamentos');
 
     final nomeFormatado =
-        medicamento['nome']?.toLowerCase().replaceAll(RegExp(r'\s+'), '_') ??
-            '';
+        medicamento['nome']?.toLowerCase().replaceAll(RegExp(r'\s+'), '_') ?? '';
 
     final dadosCompletos = {
       ...medicamento,
@@ -98,9 +97,8 @@ class _ListarMedicamentosState extends State<ListarMedicamentos> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(medExistente == null
-              ? "Adicionar Medicamento"
-              : "Editar Medicamento"),
+          title: Text(
+              medExistente == null ? "Adicionar Medicamento" : "Editar Medicamento"),
           content: SingleChildScrollView(
             child: Column(
               children: [
@@ -145,8 +143,7 @@ class _ListarMedicamentosState extends State<ListarMedicamentos> {
         controller: controller,
         decoration: InputDecoration(
           labelText: label,
-          border:
-          OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
@@ -181,6 +178,7 @@ class _ListarMedicamentosState extends State<ListarMedicamentos> {
         itemBuilder: (context, index) {
           final med = medicamentos[index];
           return Card(
+            color: Colors.green,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -189,25 +187,32 @@ class _ListarMedicamentosState extends State<ListarMedicamentos> {
             child: ListTile(
               title: Text(
                 med['nome'] ?? '',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
               subtitle: Text(
                 "${med['categoria']} | ${med['alcunha']}\n${med['descricao']}",
-                style: const TextStyle(height: 1.4),
+                style: const TextStyle(
+                  height: 1.4,
+                  color: Colors.white,
+                ),
               ),
               isThreeLine: true,
               trailing: Wrap(
                 spacing: 10,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.orange),
+                    icon: const Icon(Icons.edit),
+                    color: Colors.white,
                     onPressed: () => _adicionarEditarMedicamento(
                         med.cast<String, String>()),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () =>
-                        _removerMedicamento(med['id'] ?? ''),
+                    icon: const Icon(Icons.delete),
+                    color: Colors.white,
+                    onPressed: () => _removerMedicamento(med['id'] ?? ''),
                   ),
                 ],
               ),

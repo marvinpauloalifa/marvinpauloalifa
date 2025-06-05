@@ -17,7 +17,29 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
   final usernameController = TextEditingController();
   final senhaController = TextEditingController();
   final confirmarSenhaController = TextEditingController();
+
   bool isLoading = false;
+  List<Map<String, dynamic>> farmacias = [];
+  String? selectedFarmaciaId;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarFarmacias();
+  }
+
+  Future<void> _carregarFarmacias() async {
+    final snapshot =
+    await FirebaseFirestore.instance.collection('farmacias').get();
+    setState(() {
+      farmacias = snapshot.docs
+          .map((doc) => {
+        'id': doc.id,
+        'nome': doc['nome'] ?? 'Farmácia sem nome',
+      })
+          .toList();
+    });
+  }
 
   Future<void> _criarConta() async {
     if (!_formKey.currentState!.validate()) return;
@@ -35,14 +57,18 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
       return;
     }
 
+    if (selectedFarmaciaId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, selecione uma farmácia.')),
+      );
+      return;
+    }
+
     setState(() => isLoading = true);
 
     try {
       final credenciais = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: senha);
-
-      // Gerar ID da farmácia com base no nome e username
-      final idFarmacia = "farmacia.${nomeCompleto.toLowerCase().replaceAll(' ', '.')}.${username.toLowerCase()}";
 
       await FirebaseFirestore.instance
           .collection('admin_farmacia')
@@ -51,7 +77,7 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
         'nome': nomeCompleto,
         'email': email,
         'username': username,
-        'idFarmacia': idFarmacia,
+        'idFarmacia': selectedFarmaciaId,
         'uid': credenciais.user!.uid,
       });
 
@@ -59,13 +85,13 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
       await prefs.setString('admin_nome', nomeCompleto);
       await prefs.setString('admin_email', email);
       await prefs.setString('admin_username', username);
-      await prefs.setString('admin_idFarmacia', idFarmacia);
+      await prefs.setString('admin_idFarmacia', selectedFarmaciaId!);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Administrador criado com sucesso!')),
       );
 
-      Navigator.pop(context);
+      Navigator.pushReplacementNamed(context, '/loginAdm');
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro: ${e.message}')),
@@ -90,7 +116,9 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(32),
             child: Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               elevation: 6,
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -109,11 +137,11 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Nome completo
                       TextFormField(
                         controller: nomeCompletoController,
-                        validator: (value) =>
-                        value == null || value.isEmpty ? 'Informe o nome completo' : null,
+                        validator: (value) => value == null || value.isEmpty
+                            ? 'Informe o nome completo'
+                            : null,
                         decoration: const InputDecoration(
                           labelText: 'Nome completo',
                           prefixIcon: Icon(Icons.person, color: Colors.green),
@@ -122,11 +150,11 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Email
                       TextFormField(
                         controller: emailController,
-                        validator: (value) =>
-                        value == null || value.isEmpty ? 'Informe o email' : null,
+                        validator: (value) => value == null || value.isEmpty
+                            ? 'Informe o email'
+                            : null,
                         decoration: const InputDecoration(
                           labelText: 'Email',
                           prefixIcon: Icon(Icons.email, color: Colors.green),
@@ -135,25 +163,51 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Username
                       TextFormField(
                         controller: usernameController,
-                        validator: (value) =>
-                        value == null || value.isEmpty ? 'Informe o username' : null,
+                        validator: (value) => value == null || value.isEmpty
+                            ? 'Informe o username'
+                            : null,
                         decoration: const InputDecoration(
                           labelText: 'Username',
-                          prefixIcon: Icon(Icons.account_circle, color: Colors.green),
+                          prefixIcon:
+                          Icon(Icons.account_circle, color: Colors.green),
                           border: OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 16),
 
-                      // Senha
+                      DropdownButtonFormField<String>(
+                        value: selectedFarmaciaId,
+                        items: farmacias.map((farmacia) {
+                          return DropdownMenuItem<String>(
+                            value: farmacia['id'],
+                            child: Text(farmacia['nome']),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            selectedFarmaciaId = value;
+                          });
+                        },
+                        decoration: const InputDecoration(
+                          labelText: 'Selecione a farmácia',
+                          prefixIcon: Icon(Icons.local_pharmacy,
+                              color: Colors.green),
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) => value == null
+                            ? 'Selecione uma farmácia'
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+
                       TextFormField(
                         controller: senhaController,
                         obscureText: true,
-                        validator: (value) =>
-                        value == null || value.isEmpty ? 'Informe a senha' : null,
+                        validator: (value) => value == null || value.isEmpty
+                            ? 'Informe a senha'
+                            : null,
                         decoration: const InputDecoration(
                           labelText: 'Senha',
                           prefixIcon: Icon(Icons.lock, color: Colors.green),
@@ -162,21 +216,21 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Confirmar senha
                       TextFormField(
                         controller: confirmarSenhaController,
                         obscureText: true,
-                        validator: (value) =>
-                        value == null || value.isEmpty ? 'Confirme a senha' : null,
+                        validator: (value) => value == null || value.isEmpty
+                            ? 'Confirme a senha'
+                            : null,
                         decoration: const InputDecoration(
                           labelText: 'Confirmar senha',
-                          prefixIcon: Icon(Icons.lock_outline, color: Colors.green),
+                          prefixIcon:
+                          Icon(Icons.lock_outline, color: Colors.green),
                           border: OutlineInputBorder(),
                         ),
                       ),
                       const SizedBox(height: 24),
 
-                      // Botão Criar Conta
                       SizedBox(
                         width: double.infinity,
                         height: 48,
@@ -189,10 +243,12 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
                             ),
                           ),
                           child: isLoading
-                              ? const CircularProgressIndicator(color: Colors.white)
+                              ? const CircularProgressIndicator(
+                              color: Colors.white)
                               : const Text(
                             'Criar Conta',
-                            style: TextStyle(fontSize: 16, color: Colors.white),
+                            style: TextStyle(
+                                fontSize: 16, color: Colors.white),
                           ),
                         ),
                       ),

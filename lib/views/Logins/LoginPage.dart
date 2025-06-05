@@ -27,7 +27,7 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (userCredential.user != null) {
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const UserPage()),
         );
@@ -86,7 +86,7 @@ class _LoginPageState extends State<LoginPage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        "Entrar como Cliente",
+                        "Seja Bem-Vindo ao MediFinder!",
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,

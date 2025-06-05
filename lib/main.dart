@@ -49,7 +49,7 @@ class MainApp extends StatelessWidget {
         '/': (context) => InicioPage(),
         '/login': (context) => const LoginPage(),
         '/criarAdmin': (context) => const CriarAdminFarmacia(),
-        '/user': (context) => const UserPage(),
+        '/user': (context) => UserPage(),
         '/registerFarmacia': (context) => const RegistoFarmacias(),
         '/gerirMedicamentos': (context) => const ListarMedicamentos(),
         '/adminFarmacia': (context) => const AdminFarmaciaPage(),

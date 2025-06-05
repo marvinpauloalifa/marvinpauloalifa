@@ -50,7 +50,7 @@ class UserViewModel extends ChangeNotifier {
   Future<void> extractTextFromImage() async {
     if (_selectedImage != null) {
       _recognizedText = await _ocrService.recognizeTextFromImage(_selectedImage!);
-      searchController.text = _recognizedText; // <-- texto vai para barra de pesquisa
+      searchController.text = _recognizedText;
       notifyListeners();
     }
   }

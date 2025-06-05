@@ -12,7 +12,7 @@ class LoginFarmacia extends StatefulWidget {
 
 class _LoginFarmaciaState extends State<LoginFarmacia> {
   final _formKey = GlobalKey<FormState>();
-  final usernameController = TextEditingController();
+  final usernameController = TextEditingController(); // ID do administrador
   final senhaController = TextEditingController();
 
   bool isLoading = false;
@@ -26,28 +26,43 @@ class _LoginFarmaciaState extends State<LoginFarmacia> {
     final senha = senhaController.text.trim();
 
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('farmacias')
+      // Consultar coleção admin_farmacia pelo ID do administrador
+      final adminDoc = await FirebaseFirestore.instance
+          .collection('admin_farmacia')
           .doc(username)
           .get();
 
-      if (!doc.exists) {
-        _mostrarMensagem('Farmácia não encontrada.');
+      if (!adminDoc.exists) {
+        _mostrarMensagem('Administrador não encontrado.');
+        setState(() => isLoading = false);
         return;
       }
 
-      final email = doc.get('email');
-      final idFarmacia = doc.id;
+      final email = adminDoc.get('email');
+      final idFarmacia = adminDoc.get('idFarmacia');
+      final idAdministrador = adminDoc.id;
 
+      // Login usando email do administrador
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: senha,
       );
 
       final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('id_administrador', idAdministrador);
       await prefs.setString('id_farmacia', idFarmacia);
-      await prefs.setString('nome_farmacia', doc.get('nome'));
-      await prefs.setString('email_farmacia', email);
+
+      // Se quiser armazenar nome da farmácia, precisa consultar farmácia
+      final farmaciaDoc = await FirebaseFirestore.instance
+          .collection('farmacias')
+          .doc(idFarmacia)
+          .get();
+
+      if (farmaciaDoc.exists) {
+        await prefs.setString('nome_farmacia', farmaciaDoc.get('nome'));
+      }
+
+      await prefs.setString('email_administrador', email);
 
       Navigator.pushReplacementNamed(context, '/adminFarmacia');
     } on FirebaseAuthException catch (e) {
@@ -72,7 +87,7 @@ class _LoginFarmaciaState extends State<LoginFarmacia> {
   }
 
   void _irParaCriarConta() {
-    Navigator.pushNamed(context, '/criarFarmacia');
+    Navigator.pushNamed(context, '/criarAdmin');
   }
 
   @override
@@ -102,7 +117,7 @@ class _LoginFarmaciaState extends State<LoginFarmacia> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        'Login da Farmácia',
+                        'Login do Administrador',
                         style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.bold,
@@ -113,7 +128,7 @@ class _LoginFarmaciaState extends State<LoginFarmacia> {
                       TextFormField(
                         controller: usernameController,
                         decoration: const InputDecoration(
-                          labelText: 'ID/Nome da Farmácia',
+                          labelText: 'ID do Administrador',
                           border: OutlineInputBorder(),
                         ),
                         validator: (value) =>

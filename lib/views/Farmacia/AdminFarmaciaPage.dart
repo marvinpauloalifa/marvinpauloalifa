@@ -58,11 +58,8 @@ class _AdminFarmaciaPageState extends State<AdminFarmaciaPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Bem-vindo, $adminNome",
+            Text("Seja bem-vindo, $adminNome",
                 style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
-            const SizedBox(height: 8),
-            Text("Email: $adminEmail", style: const TextStyle(fontSize: 16)),
-            Text("ID da Farmácia: $idFarmacia", style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 24),
             Expanded(
               child: GridView.count(
