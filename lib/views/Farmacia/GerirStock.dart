@@ -1,345 +1,360 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class GerirStock extends StatefulWidget {
-  const GerirStock({Key? key}) : super(key: key);
-
   @override
   _GerirStockState createState() => _GerirStockState();
 }
 
 class _GerirStockState extends State<GerirStock> {
-  List<Map<String, dynamic>> estoque = [];
-  List<Map<String, String>> medicamentosCadastrados = [];
-
-  final FirebaseFirestore firestore = FirebaseFirestore.instance;
-  String farmaciaId = '';
+  List<Map<String, dynamic>> medicamentos = [];
+  String? farmaciaId;
 
   @override
   void initState() {
     super.initState();
-    _carregarDados();
+    _carregarIdFarmacia();
   }
 
-  Future<void> _carregarDados() async {
+  Future<void> _carregarIdFarmacia() async {
     final prefs = await SharedPreferences.getInstance();
-    farmaciaId = prefs.getString('id_farmacia') ?? '';
-    await _carregarMedicamentos();
-    await _carregarEstoque();
-  }
-
-  Future<void> _carregarMedicamentos() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? medicamentosSalvos = prefs.getStringList('medicamentos');
-
-    if (medicamentosSalvos == null || medicamentosSalvos.isEmpty) {
-      medicamentosCadastrados = [];
-    } else {
-      medicamentosCadastrados = medicamentosSalvos.map((e) {
-        final parts = e.split('|');
-        return {
-          'nome': parts[0],
-          'categoria': parts[1],
-          'alcunha': parts[2],
-          'descricao': parts[3],
-        };
-      }).toList();
+    farmaciaId = prefs.getString('id_farmacia');
+    if (farmaciaId != null) {
+      await _carregarMedicamentosFirestore();
     }
   }
 
-  Future<void> _carregarEstoque() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String>? estoqueSalvo = prefs.getStringList('estoque');
-
-    if (estoqueSalvo != null) {
-      setState(() {
-        estoque = estoqueSalvo.map((e) {
-          final parts = e.split('|');
-          return {
-            'nome': parts[0],
-            'dataAtualizacao': parts[1],
-            'estado': parts[2],
-            'preco': parts[3],
-            'quantidade': int.parse(parts[4]),
-          };
-        }).toList();
-      });
-    }
-  }
-
-  Future<void> _salvarEstoque() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> estoqueString = estoque.map((item) {
-      return '${item['nome']}|${item['dataAtualizacao']}|${item['estado']}|${item['preco']}|${item['quantidade']}';
-    }).toList();
-    await prefs.setStringList('estoque', estoqueString);
-  }
-
-  Future<void> _atualizarFirebase(String nome, String preco, int quantidade) async {
-    final estado = quantidade > 0 ? 'disponível' : 'indisponível';
-    final data = {
-      'preco': preco,
-      'quantidade': quantidade,
-      'estado': estado,
-      'dataAtualizacao': DateFormat('dd/MM/yyyy').format(DateTime.now()),
-    };
-
-    await firestore
+  Future<void> _carregarMedicamentosFirestore() async {
+    final snapshot = await FirebaseFirestore.instance
         .collection('farmacias')
         .doc(farmaciaId)
         .collection('medicamentos')
-        .doc(nome.toLowerCase().replaceAll(' ', '_'))
-        .set(data, SetOptions(merge: true));
-  }
+        .get();
 
-  void _adicionarNovoStock() {
-    final medicamentosSemStock = medicamentosCadastrados.where((med) {
-      return !estoque.any((item) => item['nome'] == med['nome']);
+    final dados = snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['nome'] = doc.id;
+      return data;
     }).toList();
 
-    if (medicamentosSemStock.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Todos os medicamentos já têm stock!')),
-      );
-      return;
-    }
+    setState(() {
+      medicamentos = dados
+          .where((m) =>
+      m.containsKey('preco') &&
+          m.containsKey('quantidade') &&
+          m['preco'] > 0 &&
+          m['quantidade'] > 0)
+          .cast<Map<String, dynamic>>()
+          .toList();
+    });
 
-    String? selectedNome;
-    TextEditingController quantidadeController = TextEditingController();
-    TextEditingController precoController = TextEditingController();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('medicamentos', jsonEncode(medicamentos));
+  }
+
+  Future<void> _salvarMedicamento(Map<String, dynamic> medicamento) async {
+    if (farmaciaId == null) return;
+
+    final nome = medicamento['nome'];
+    if (nome == null || nome is! String) return;
+
+    final docRef = FirebaseFirestore.instance
+        .collection('farmacias')
+        .doc(farmaciaId)
+        .collection('medicamentos')
+        .doc(nome);
+
+    await docRef.update({
+      'preco': medicamento['preco'],
+      'quantidade': medicamento['quantidade'],
+      'estado': medicamento['quantidade'] > 0 ? 'disponível' : 'indisponível',
+    });
+
+    await _carregarMedicamentosFirestore();
+  }
+
+  void _abrirSelecaoMedicamento() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('farmacias')
+        .doc(farmaciaId)
+        .collection('medicamentos')
+        .get();
+
+    final todos = snapshot.docs.map((doc) {
+      final data = doc.data();
+      data['nome'] = doc.id;
+      return data;
+    }).toList();
+
+    String? nomeSelecionado;
+    double quantidade = 0;
+    double preco = 0;
 
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Adicionar Novo Stock'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<String>(
-              hint: const Text('Selecione o medicamento'),
-              items: medicamentosSemStock.map((med) {
-                return DropdownMenuItem<String>(
-                  value: med['nome'],
-                  child: Text(med['nome']!),
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Selecionar Medicamento',
+                          style: TextStyle(
+                              color: Colors.green.shade800,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 20),
+                      DropdownButtonFormField<String>(
+                        decoration: InputDecoration(
+                          labelText: "Escolha o medicamento",
+                          labelStyle: TextStyle(color: Colors.green),
+                          border: OutlineInputBorder(),
+                        ),
+                        value: nomeSelecionado,
+                        items: todos.map<DropdownMenuItem<String>>((med) {
+                          return DropdownMenuItem<String>(
+                            value: med['nome'],
+                            child: Text(med['nome']),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() => nomeSelecionado = value);
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        decoration: InputDecoration(
+                          labelText: 'Quantidade',
+                          labelStyle: TextStyle(color: Colors.green),
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) =>
+                        quantidade = double.tryParse(value) ?? 0,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        decoration: InputDecoration(
+                          labelText: 'Preço',
+                          labelStyle: TextStyle(color: Colors.green),
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) =>
+                        preco = double.tryParse(value) ?? 0,
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton(
+                            child: Text('Cancelar',
+                                style: TextStyle(color: Colors.green)),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green),
+                            onPressed: () {
+                              if (nomeSelecionado != null &&
+                                  quantidade > 0 &&
+                                  preco > 0) {
+                                final med = todos.firstWhere(
+                                        (m) => m['nome'] == nomeSelecionado);
+                                final atualizado = {
+                                  ...med,
+                                  'quantidade': quantidade,
+                                  'preco': preco,
+                                  'estado': quantidade > 0
+                                      ? 'disponível'
+                                      : 'indisponível',
+                                };
+                                _salvarMedicamento(atualizado);
+                                Navigator.pop(context);
+                              }
+                            },
+                            child: Text('Salvar',
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      )
+                    ],
+                  ),
                 );
-              }).toList(),
-              onChanged: (value) => selectedNome = value,
+              },
             ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: quantidadeController,
-              decoration: const InputDecoration(labelText: 'Quantidade'),
-              keyboardType: TextInputType.number,
-            ),
-            TextField(
-              controller: precoController,
-              decoration: const InputDecoration(labelText: 'Preço (MZN)'),
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
           ),
-          TextButton(
-            onPressed: () async {
-              final quantidade = int.tryParse(quantidadeController.text) ?? 0;
-              final preco = precoController.text.trim();
-
-              if (selectedNome == null || preco.isEmpty || quantidade < 0) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Preencha todos os campos corretamente!')),
-                );
-                return;
-              }
-
-              final estado = quantidade > 0 ? 'disponível' : 'indisponível';
-
-              setState(() {
-                estoque.add({
-                  'nome': selectedNome,
-                  'dataAtualizacao': DateFormat('dd/MM/yyyy').format(DateTime.now()),
-                  'estado': estado,
-                  'preco': preco,
-                  'quantidade': quantidade,
-                });
-              });
-
-              await _salvarEstoque();
-              await _atualizarFirebase(selectedNome!, preco, quantidade);
-              Navigator.pop(context);
-            },
-            child: const Text('Adicionar'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  void _editarStock(int index) {
-    final medicamento = estoque[index];
-    TextEditingController quantidadeController = TextEditingController(text: medicamento['quantidade'].toString());
-    TextEditingController precoController = TextEditingController(text: medicamento['preco']);
+  void _editarMedicamento(int index) {
+    final med = medicamentos[index];
+    final quantidadeController =
+    TextEditingController(text: med['quantidade'].toString());
+    final precoController =
+    TextEditingController(text: med['preco'].toString());
 
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text('Editar Stock - ${medicamento['nome']}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: quantidadeController,
-              decoration: const InputDecoration(labelText: 'Quantidade'),
-              keyboardType: TextInputType.number,
+      builder: (context) {
+        return Dialog(
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Editar Medicamento',
+                    style: TextStyle(
+                        color: Colors.green.shade800,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                Text(med['nome'], style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: quantidadeController,
+                  decoration: InputDecoration(labelText: 'Quantidade'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: precoController,
+                  decoration: InputDecoration(labelText: 'Preço'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      child:
+                      Text('Cancelar', style: TextStyle(color: Colors.green)),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green),
+                      onPressed: () {
+                        final novaQtd =
+                            double.tryParse(quantidadeController.text) ?? 0;
+                        final novoPreco =
+                            double.tryParse(precoController.text) ?? 0;
+                        final atualizado = {
+                          ...med,
+                          'quantidade': novaQtd,
+                          'preco': novoPreco,
+                          'estado':
+                          novaQtd > 0 ? 'disponível' : 'indisponível',
+                        };
+                        _salvarMedicamento(atualizado);
+                        Navigator.pop(context);
+                      },
+                      child:
+                      Text('Salvar', style: TextStyle(color: Colors.white)),
+                    )
+                  ],
+                )
+              ],
             ),
-            TextField(
-              controller: precoController,
-              decoration: const InputDecoration(labelText: 'Preço (MZN)'),
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
           ),
-          TextButton(
-            onPressed: () async {
-              final novaQuantidade = int.tryParse(quantidadeController.text) ?? -1;
-              final novoPreco = precoController.text.trim();
-
-              if (novaQuantidade < 0 || novoPreco.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Campos inválidos!')),
-                );
-                return;
-              }
-
-              final novoEstado = novaQuantidade > 0 ? 'disponível' : 'indisponível';
-
-              setState(() {
-                estoque[index] = {
-                  'nome': medicamento['nome'],
-                  'dataAtualizacao': DateFormat('dd/MM/yyyy').format(DateTime.now()),
-                  'estado': novoEstado,
-                  'preco': novoPreco,
-                  'quantidade': novaQuantidade,
-                };
-              });
-
-              await _salvarEstoque();
-              await _atualizarFirebase(medicamento['nome'], novoPreco, novaQuantidade);
-              Navigator.pop(context);
-            },
-            child: const Text('Salvar'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  void _removerStock(int index) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('Remover ${estoque[index]['nome']} do stock?'),
-        content: const Text('Essa ação não pode ser desfeita.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () async {
-              String nome = estoque[index]['nome'];
-              setState(() {
-                estoque.removeAt(index);
-              });
-              await _salvarEstoque();
-              await firestore
-                  .collection('farmacias')
-                  .doc(farmaciaId)
-                  .collection('medicamentos')
-                  .doc(nome.toLowerCase().replaceAll(' ', '_'))
-                  .delete();
-              Navigator.pop(context);
-            },
-            child: const Text('Remover', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
+  void _removerMedicamento(int index) async {
+    final med = medicamentos[index];
+    final nome = med['nome'];
+    if (nome == null || nome is! String) return;
+
+    await FirebaseFirestore.instance
+        .collection('farmacias')
+        .doc(farmaciaId)
+        .collection('medicamentos')
+        .doc(nome)
+        .update({
+      'quantidade': 0,
+      'preco': 0,
+      'estado': 'indisponível',
+    });
+
+    await _carregarMedicamentosFirestore();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Gerir Estoque de Medicamentos'),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.green, Colors.lightGreen],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _adicionarNovoStock,
-        child: const Icon(Icons.add),
+        title: Text('Gerir Stock', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.green,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: estoque.isEmpty
-            ? const Center(child: Text('Nenhum medicamento em stock.'))
-            : ListView.builder(
-          itemCount: estoque.length,
-          itemBuilder: (context, index) {
-            final medicamento = estoque[index];
-            return Card(
-              color: Colors.white,
-              elevation: 4,
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(16),
-                title: Text(medicamento['nome'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text(
-                  'Estado: ${medicamento['estado']}\n'
-                      'Preço: ${medicamento['preco']} MZN | Quantidade: ${medicamento['quantidade']}\n'
-                      'Última atualização: ${medicamento['dataAtualizacao']}',
-                ),
-                leading: Icon(
-                  medicamento['estado'] == 'disponível' ? Icons.check_circle : Icons.cancel,
-                  color: medicamento['estado'] == 'disponível' ? Colors.green : Colors.red,
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () => _editarStock(index),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete),
-                      color: Colors.red,
-                      onPressed: () => _removerStock(index),
-                    ),
-                  ],
+      body: medicamentos.isEmpty
+          ? Center(
+          child: Text('Nenhum medicamento disponível',
+              style: TextStyle(color: Colors.green)))
+          : ListView.builder(
+        itemCount: medicamentos.length,
+        itemBuilder: (context, index) {
+          final med = medicamentos[index];
+
+          // Condição: medicamento válido (com quantidade e preço > 0)
+          final bool ativo = (med['quantidade'] > 0 && med['preco'] > 0);
+
+          final Color backgroundColor = ativo ? Colors.green : Colors.white;
+          final Color foregroundColor = ativo ? Colors.white : Colors.green;
+
+          return Card(
+            margin: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            color: backgroundColor,
+            child: ListTile(
+              title: Text(
+                med['nome'],
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: foregroundColor,
                 ),
               ),
-            );
-          },
-        ),
+              subtitle: Text(
+                "Quantidade: ${med['quantidade']} | Preço: ${med['preco']} MZN",
+                style: TextStyle(color: foregroundColor),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.edit, color: foregroundColor),
+                    onPressed: () => _editarMedicamento(index),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.delete, color: foregroundColor),
+                    onPressed: () => _removerMedicamento(index),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+
+      floatingActionButton: FloatingActionButton(
+        onPressed: _abrirSelecaoMedicamento,
+        backgroundColor: Colors.green,
+        child: Icon(Icons.add, color: Colors.white),
       ),
     );
   }

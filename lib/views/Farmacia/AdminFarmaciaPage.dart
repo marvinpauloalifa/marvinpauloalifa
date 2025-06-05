@@ -44,6 +44,7 @@ class _AdminFarmaciaPageState extends State<AdminFarmaciaPage> {
       appBar: AppBar(
         title: const Text("Painel do Administrador"),
         backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -53,7 +54,7 @@ class _AdminFarmaciaPageState extends State<AdminFarmaciaPage> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -62,31 +63,33 @@ class _AdminFarmaciaPageState extends State<AdminFarmaciaPage> {
             const SizedBox(height: 8),
             Text("Email: $adminEmail", style: const TextStyle(fontSize: 16)),
             Text("ID da Farmácia: $idFarmacia", style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 32),
-
-            const Text("Gerenciamento", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 16),
-
-            _buildOption(
-              icon: Icons.medical_services,
-              label: 'Ver Medicamentos',
-              onTap: () {
-                Navigator.pushNamed(context, '/listarMedicamentos');
-              },
-            ),
-            _buildOption(
-              icon: Icons.inventory_2,
-              label: 'Gerir Stock',
-              onTap: () {
-                Navigator.pushNamed(context, '/gerirStock');
-              },
-            ),
-            _buildOption(
-              icon: Icons.info_outline,
-              label: 'Informações da Farmácia',
-              onTap: () {
-                Navigator.pushNamed(context, '/infoFarmacia');
-              },
+            const SizedBox(height: 24),
+            Expanded(
+              child: GridView.count(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                children: [
+                  _buildDashboardCard(
+                    icon: Icons.add_box_rounded,
+                    label: 'Adicionar Medicamentos',
+                    onTap: () => Navigator.pushNamed(context, '/gerirMedicamentos'),
+                    color: Colors.green.shade300,
+                  ),
+                  _buildDashboardCard(
+                    icon: Icons.inventory_2,
+                    label: 'Gerir Stock',
+                    onTap: () => Navigator.pushNamed(context, '/gerirStock'),
+                    color: Colors.green.shade400,
+                  ),
+                  _buildDashboardCard(
+                    icon: Icons.info_outline,
+                    label: 'Editar Farmácia',
+                    onTap: () => Navigator.pushNamed(context, '/EditarMed'),
+                    color: Colors.green.shade500,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -94,16 +97,40 @@ class _AdminFarmaciaPageState extends State<AdminFarmaciaPage> {
     );
   }
 
-  Widget _buildOption({required IconData icon, required String label, required VoidCallback onTap}) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 3,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ListTile(
-        leading: Icon(icon, color: Colors.green),
-        title: Text(label, style: const TextStyle(fontSize: 16)),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: onTap,
+  Widget _buildDashboardCard({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required Color color,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [color, Colors.green.shade700],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(color: Colors.green.shade200, blurRadius: 6, offset: const Offset(0, 4)),
+          ],
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 40, color: Colors.white),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
       ),
     );
   }

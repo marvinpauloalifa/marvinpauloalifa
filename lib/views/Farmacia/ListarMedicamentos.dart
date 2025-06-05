@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:convert';
 
 class ListarMedicamentos extends StatefulWidget {
   const ListarMedicamentos({Key? key}) : super(key: key);
@@ -38,16 +37,17 @@ class _ListarMedicamentosState extends State<ListarMedicamentos> {
 
     setState(() {
       medicamentos = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         return {
           'id': doc.id,
           'nome': data['nome'] ?? '',
           'categoria': data['categoria'] ?? '',
           'alcunha': data['alcunha'] ?? '',
           'descricao': data['descricao'] ?? '',
+          'quantidade': data['quantidade'] ?? 0,
+          'preco': data['preco'] ?? 0.0,
         };
       }).toList();
-
     });
   }
 
@@ -59,12 +59,17 @@ class _ListarMedicamentosState extends State<ListarMedicamentos> {
         .doc(idFarmacia)
         .collection('medicamentos');
 
-    if (docId != null) {
-      await ref.doc(docId).set(medicamento);
-    } else {
-      await ref.add(medicamento);
-    }
+    final nomeFormatado =
+        medicamento['nome']?.toLowerCase().replaceAll(RegExp(r'\s+'), '_') ??
+            '';
 
+    final dadosCompletos = {
+      ...medicamento,
+      'quantidade': 0,
+      'preco': 0.0,
+    };
+
+    await ref.doc(nomeFormatado).set(dadosCompletos);
     _carregarMedicamentos(); // Atualiza a lista
   }
 
@@ -133,8 +138,7 @@ class _ListarMedicamentosState extends State<ListarMedicamentos> {
     );
   }
 
-  Widget _buildTextField(
-      String label, TextEditingController controller) {
+  Widget _buildTextField(String label, TextEditingController controller) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
@@ -153,6 +157,7 @@ class _ListarMedicamentosState extends State<ListarMedicamentos> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Medicamentos da Farmácia"),
+        foregroundColor: Colors.white,
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -196,8 +201,8 @@ class _ListarMedicamentosState extends State<ListarMedicamentos> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.edit, color: Colors.orange),
-                    onPressed: () =>
-                        _adicionarEditarMedicamento(med.cast<String, String>()),
+                    onPressed: () => _adicionarEditarMedicamento(
+                        med.cast<String, String>()),
                   ),
                   IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),

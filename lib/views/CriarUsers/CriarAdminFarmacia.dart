@@ -100,7 +100,7 @@ class _CriarAdminFarmaciaState extends State<CriarAdminFarmacia> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text(
-                        "Criar Conta - Admin",
+                        "Criar Conta do Administrador da Farmacia",
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
