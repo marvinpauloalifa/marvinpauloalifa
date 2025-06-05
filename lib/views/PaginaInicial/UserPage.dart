@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:farmacia2pdm/views/CriarUsers/RegistoFarmacias.dart';
-import 'package:farmacia2pdm/views/Logins/LoginPage.dart';
-import 'package:camera/camera.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import '../../viewmodels/UserViewModel.dart';
+import '../CriarUsers/RegistoFarmacias.dart';
+import '../Logins/LoginPage.dart';
 
 class UserPage extends StatefulWidget {
   const UserPage({super.key});
@@ -15,165 +14,31 @@ class UserPage extends StatefulWidget {
 }
 
 class _UserPageState extends State<UserPage> {
-  late GoogleMapController _mapController;
-  LatLng? _currentPosition;
-  final Set<Marker> _markers = {};
-  File? _imageFile;
-  CameraController? _cameraController;
-  bool _isCameraReady = false;
-
   @override
   void initState() {
     super.initState();
-    _determinePosition();
-    _initializeCamera();
-  }
-
-  @override
-  void dispose() {
-    _cameraController?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _initializeCamera() async {
-    try {
-      final cameras = await availableCameras();
-      final firstCamera = cameras.first;
-
-      _cameraController = CameraController(
-        firstCamera,
-        ResolutionPreset.medium,
-      );
-
-      await _cameraController!.initialize();
-
-      if (mounted) {
-        setState(() {
-          _isCameraReady = true;
-        });
-      }
-    } catch (e) {
-      debugPrint('Erro ao inicializar câmera: $e');
-      setState(() {
-        _isCameraReady = false;
-      });
-    }
-  }
-
-  Future<void> _determinePosition() async {
-    LocationPermission permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-      return;
-    }
-
-    Position pos = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.bestForNavigation,
-    );
-
-    setState(() {
-      _currentPosition = LatLng(pos.latitude, pos.longitude);
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('meu_local'),
-          position: _currentPosition!,
-          infoWindow: const InfoWindow(title: 'Você está aqui'),
-        ),
-      );
-    });
-  }
-
-  Future<void> _takePicture() async {
-    if (!_isCameraReady || _cameraController == null || !_cameraController!.value.isInitialized) {
-      return;
-    }
-
-    try {
-      final XFile picture = await _cameraController!.takePicture();
-      setState(() {
-        _imageFile = File(picture.path);
-      });
-
-      if (_imageFile != null) {
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Foto tirada'),
-            content: Image.file(_imageFile!),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Erro ao tirar foto: $e');
-    }
-  }
-
-  Future<void> _pickImageFromGallery() async {
-    final pickedFile = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-    );
-
-    if (pickedFile != null) {
-      setState(() {
-        _imageFile = File(pickedFile.path);
-      });
-    }
-  }
-
-  void _showImageSourceDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Selecionar fonte da imagem'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Tirar foto'),
-              onTap: () {
-                Navigator.pop(context);
-                _takePicture();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Escolher da galeria'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImageFromGallery();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _onMapCreated(GoogleMapController controller) {
-    _mapController = controller;
+    // Busca a localização assim que o widget for inicializado
+    final viewModel = Provider.of<UserViewModel>(context, listen: false);
+    viewModel.fetchUserLocation();
   }
 
   @override
   Widget build(BuildContext context) {
+    final viewModel = Provider.of<UserViewModel>(context);
     final size = MediaQuery.of(context).size;
-    final height = size.height;
-    final width = size.width;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: width * 0.05, vertical: height * 0.02),
+          padding: EdgeInsets.symmetric(
+            horizontal: size.width * 0.05,
+            vertical: size.height * 0.02,
+          ),
           child: Column(
             children: [
               Container(
-                height: height * 0.07,
+                height: size.height * 0.07,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(30),
@@ -227,46 +92,56 @@ class _UserPageState extends State<UserPage> {
                     ),
                     IconButton(
                       icon: Icon(Icons.camera_alt, color: Colors.green[700]),
-                      onPressed: _showImageSourceDialog,
+                      onPressed: () => _showImageSourceDialog(context, viewModel),
                     ),
                     Expanded(
                       child: TextField(
+                        controller: viewModel.searchController,
                         decoration: InputDecoration(
                           hintText: "Pesquisar medicamento",
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: width * 0.04),
+                          contentPadding: EdgeInsets.symmetric(horizontal: size.width * 0.04),
                         ),
                       ),
                     ),
                     IconButton(
                       icon: Icon(Icons.search, color: Colors.green[700]),
-                      onPressed: () {},
+                      onPressed: () {
+                        final query = viewModel.searchController.text;
+                        print("Pesquisar: $query");
+                        // Adicione a lógica de pesquisa aqui
+                      },
                     ),
                   ],
                 ),
               ),
 
-              SizedBox(height: height * 0.02),
+              SizedBox(height: size.height * 0.02),
 
-              if (_imageFile != null)
+              if (viewModel.selectedImage != null)
                 Container(
-                  height: height * 0.2,
-                  margin: EdgeInsets.only(bottom: height * 0.02),
-                  child: Image.file(_imageFile!, fit: BoxFit.cover),
+                  height: size.height * 0.2,
+                  margin: EdgeInsets.only(bottom: size.height * 0.02),
+                  child: Image.file(viewModel.selectedImage!, fit: BoxFit.cover),
                 ),
 
               Expanded(
-                child: _currentPosition == null
+                child: viewModel.userPosition == null
                     ? const Center(child: CircularProgressIndicator())
                     : ClipRRect(
                   borderRadius: BorderRadius.circular(15),
                   child: GoogleMap(
-                    onMapCreated: _onMapCreated,
+                    onMapCreated: (controller) {
+                      viewModel.setMapController(controller);
+                    },
                     initialCameraPosition: CameraPosition(
-                      target: _currentPosition!,
+                      target: LatLng(
+                        viewModel.userPosition!.latitude,
+                        viewModel.userPosition!.longitude,
+                      ),
                       zoom: 14,
                     ),
-                    markers: _markers,
+                    markers: viewModel.mapMarkers,
                     myLocationEnabled: true,
                     myLocationButtonEnabled: true,
                   ),
@@ -274,6 +149,36 @@ class _UserPageState extends State<UserPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showImageSourceDialog(BuildContext context, UserViewModel viewModel) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Selecionar fonte da imagem'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Tirar foto'),
+              onTap: () {
+                Navigator.pop(context);
+                viewModel.selectImageFromCamera();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Escolher da galeria'),
+              onTap: () {
+                Navigator.pop(context);
+                viewModel.selectImageFromGallery();
+              },
+            ),
+          ],
         ),
       ),
     );
