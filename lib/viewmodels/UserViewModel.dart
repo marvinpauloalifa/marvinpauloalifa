@@ -1,87 +1,123 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:image_picker/image_picker.dart';
-import '../services/CameraService.dart';
-import '../services/LocationService.dart';
-import '../services/OCR.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UserViewModel extends ChangeNotifier {
-  final CameraService _cameraService = CameraService();
-  final LocationService _locationService = LocationService();
-  final OCRService _ocrService = OCRService();
+  TextEditingController searchController = TextEditingController();
+  Position? userPosition;
+  GoogleMapController? mapController;
 
-  final TextEditingController searchController = TextEditingController();
-
-  File? _selectedImage;
-  File? get selectedImage => _selectedImage;
-
-  String _recognizedText = '';
-  String get recognizedText => _recognizedText;
-
-  Position? _userPosition;
-  Position? get userPosition => _userPosition;
-
-  GoogleMapController? _mapController;
-  GoogleMapController? get mapController => _mapController;
-
-  Set<Marker> _mapMarkers = {};
+  File? selectedImage;
+  final Set<Marker> _mapMarkers = {};
   Set<Marker> get mapMarkers => _mapMarkers;
 
-  Future<void> selectImageFromCamera() async {
-    final XFile? xfile = await _cameraService.takePicture();
-    if (xfile != null) {
-      _selectedImage = File(xfile.path);
-      notifyListeners();
-      await extractTextFromImage();
-    }
-  }
-
-  Future<void> selectImageFromGallery() async {
-    final XFile? xfile = await _cameraService.pickFromGallery();
-    if (xfile != null) {
-      _selectedImage = File(xfile.path);
-      notifyListeners();
-      await extractTextFromImage();
-    }
-  }
-
-  Future<void> extractTextFromImage() async {
-    if (_selectedImage != null) {
-      _recognizedText = await _ocrService.recognizeTextFromImage(_selectedImage!);
-      searchController.text = _recognizedText;
-      notifyListeners();
-    }
+  void setMapController(GoogleMapController controller) {
+    mapController = controller;
   }
 
   Future<void> fetchUserLocation() async {
-    try {
-      _userPosition = await _locationService.getCurrentLocation();
-      notifyListeners();
-      if (_userPosition != null) {
-        addMarker(
-          LatLng(_userPosition!.latitude, _userPosition!.longitude),
-          'Localização Atual',
-        );
-      }
-    } catch (e) {
-      print('Erro ao obter localização: $e');
-    }
-  }
+    final position = await Geolocator.getCurrentPosition();
+    userPosition = position;
 
-  void setMapController(GoogleMapController controller) {
-    _mapController = controller;
+    // Adiciona marcador da localização do usuário
+    _mapMarkers.add(
+      Marker(
+        markerId: const MarkerId('user_location'),
+        position: LatLng(position.latitude, position.longitude),
+        infoWindow: const InfoWindow(title: 'Você está aqui'),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      ),
+    );
     notifyListeners();
   }
 
-  void addMarker(LatLng position, String title) {
+  // ⚠️ Atualizado: remove todos os marcadores (inclusive localização do usuário)
+  void limparMarcadores() {
+    _mapMarkers.clear();
+    notifyListeners();
+  }
+
+  void addMarker(String id, double latitude, double longitude, String titulo) {
     final marker = Marker(
-      markerId: MarkerId(title),
-      position: position,
-      infoWindow: InfoWindow(title: title),
+      markerId: MarkerId(id),
+      position: LatLng(latitude, longitude),
+      infoWindow: InfoWindow(title: titulo),
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
     );
     _mapMarkers.add(marker);
     notifyListeners();
+  }
+
+  // ❌ NÃO USAR: Pesquisa foi movida para a classe Pesquisa.dart
+  // Mantenho aqui para referência, mas não será usada
+  @Deprecated('Use Pesquisa.realizarPesquisaMedicamento em vez disso.')
+  Future<bool> pesquisarMedicamento(String nomeMedicamento) async {
+    limparMarcadores(); // remove tudo, inclusive localização do usuário
+    final prefs = await SharedPreferences.getInstance();
+    final firestore = FirebaseFirestore.instance;
+    final query = nomeMedicamento.toLowerCase();
+    bool encontrou = false;
+
+    final snapshot = await firestore.collection("farmacias").get();
+
+    for (var doc in snapshot.docs) {
+      final farmaciaId = doc.id;
+      final data = doc.data();
+      final nomeFarmacia = data["nome"] ?? "Farmácia";
+      final latitude = data["latitude"];
+      final longitude = data["longitude"];
+
+      if (latitude == null || longitude == null) continue;
+
+      final medDoc = await firestore
+          .collection("farmacias")
+          .doc(farmaciaId)
+          .collection("medicamentos")
+          .doc(nomeMedicamento)
+          .get();
+
+      if (medDoc.exists) {
+        final medData = medDoc.data();
+        final quantidade = medData?['quantidade'] ?? 0;
+        final preco = medData?['preco'] ?? 0;
+
+        if (quantidade > 0 && preco > 0) {
+          _mapMarkers.add(
+            Marker(
+              markerId: MarkerId(farmaciaId),
+              position: LatLng(latitude, longitude),
+              infoWindow: InfoWindow(
+                title: nomeFarmacia,
+                snippet: "$nomeMedicamento - $quantidade un. - $preco MT",
+              ),
+              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            ),
+          );
+          encontrou = true;
+        }
+      }
+    }
+
+    notifyListeners();
+
+    if (_mapMarkers.isNotEmpty) {
+      final primeiro = _mapMarkers.first.position;
+      mapController?.animateCamera(CameraUpdate.newLatLng(primeiro));
+    }
+
+    return encontrou;
+  }
+
+  // Métodos de imagem (a implementar)
+  void selectImageFromCamera() async {
+    // TODO: Implementar
+  }
+
+  void selectImageFromGallery() async {
+    // TODO: Implementar
   }
 }

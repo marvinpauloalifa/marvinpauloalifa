@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../viewmodels/UserViewModel.dart';
 import '../CriarUsers/RegistoFarmacias.dart';
 import '../Logins/LoginPage.dart';
+import 'package:farmacia2pdm/views/Farmacia/Pesquisa.dart';
 
 class UserPage extends StatefulWidget {
   const UserPage({super.key});
@@ -110,12 +111,24 @@ class _UserPageState extends State<UserPage> {
                     ),
                     IconButton(
                       icon: Icon(Icons.search, color: Colors.green[700]),
-                      onPressed: () {
-                        final query = viewModel.searchController.text;
-                        print("Pesquisar: $query");
-                        // Lógica de pesquisa aqui
+                      onPressed: () async {
+                        final query = viewModel.searchController.text.trim();
+                        if (query.isEmpty) return;
+
+                        await Pesquisa.realizarPesquisaMedicamento(
+                          query,
+                          viewModel,
+                              (mensagem) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(mensagem), backgroundColor: Colors.red),
+                            );
+                          },
+                        );
                       },
+
+
                     ),
+
                   ],
                 ),
               ),
@@ -188,3 +201,6 @@ class _UserPageState extends State<UserPage> {
     );
   }
 }
+
+
+

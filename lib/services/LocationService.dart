@@ -2,12 +2,17 @@ import 'package:geolocator/geolocator.dart';
 
 class LocationService {
   Future<Position> getCurrentLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Verifica se o serviço de localização está ativado
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       throw Exception('Serviço de localização está desativado.');
     }
 
-    LocationPermission permission = await Geolocator.checkPermission();
+    // Verifica e solicita permissões
+    permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
@@ -16,11 +21,15 @@ class LocationService {
     }
 
     if (permission == LocationPermission.deniedForever) {
-      throw Exception('Permissões de localização permanentemente negadas.');
+      throw Exception('Permissão de localização permanentemente negada.');
     }
 
-    return await Geolocator.getCurrentPosition(
+    // Obtém a localização atual com alta precisão
+    Position position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
     );
+
+    print('Localização atual: ${position.latitude}, ${position.longitude}');
+    return position;
   }
 }
