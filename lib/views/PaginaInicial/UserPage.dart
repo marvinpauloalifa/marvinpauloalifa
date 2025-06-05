@@ -14,12 +14,16 @@ class UserPage extends StatefulWidget {
 }
 
 class _UserPageState extends State<UserPage> {
+  bool _isInit = false; // ✅ Corrigido: fora do @override
+
   @override
-  void initState() {
-    super.initState();
-    // Busca a localização assim que o widget for inicializado
-    final viewModel = Provider.of<UserViewModel>(context, listen: false);
-    viewModel.fetchUserLocation();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInit) {
+      final viewModel = Provider.of<UserViewModel>(context, listen: false);
+      viewModel.fetchUserLocation();
+      _isInit = true;
+    }
   }
 
   @override
@@ -109,7 +113,7 @@ class _UserPageState extends State<UserPage> {
                       onPressed: () {
                         final query = viewModel.searchController.text;
                         print("Pesquisar: $query");
-                        // Adicione a lógica de pesquisa aqui
+                        // Lógica de pesquisa aqui
                       },
                     ),
                   ],

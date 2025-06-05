@@ -27,10 +27,7 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (userCredential.user != null) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const UserPage()),
-        );
+        Navigator.pushNamed(context, '/user'); // Certo!
       }
     } on FirebaseAuthException catch (e) {
       String mensagemErro;
