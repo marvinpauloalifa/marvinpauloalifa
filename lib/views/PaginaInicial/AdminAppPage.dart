@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:farmacia2pdm/views/CriarUsers/CriarAdminFarmacia.dart';
+// Importa as páginas de destino diretamente
+//import 'package:farmacia2pdm/views/AdminApp/ListarFarmacias.dart'; // Para gerir farmácias
+import 'package:farmacia2pdm/views/Farmacia/ListarMedicamentos.dart'; // Para gerir medicamentos
+//import 'package:farmacia2pdm/views/GerirUsuarios.dart';
+import 'package:farmacia2pdm/views/APP/GerirUsuarios.dart';
+import '../APP/ListarFarmacias.dart'; // Para gerir usuários
+// O import abaixo pode ser removido se CriarAdminFarmacia não for chamada diretamente desta página
+// import 'package:farmacia2pdm/views/CriarUsers/CriarAdminFarmacia.dart';
+
 
 class AdminAppPage extends StatelessWidget {
   const AdminAppPage({super.key});
@@ -8,27 +16,60 @@ class AdminAppPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Administração da Aplicação")),
+      appBar: AppBar(
+        title: const Text("Administração da Aplicação"),
+        backgroundColor: Colors.green[700], // Adicionado cor para o AppBar
+      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          ListTile(
-            title: const Text('Gerir Farmácias'),
-            subtitle: const Text('Editar ou apagar farmácias'),
-            trailing: const Icon(Icons.local_pharmacy),
-            onTap: () => Navigator.pushNamed(context, '/gerirFarmacias'),
+          // --- Gerir Farmácias ---
+          Card( // Adicionado Card para melhor visual
+            elevation: 4,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(16),
+              title: const Text('Gerir Farmácias', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Visualizar, editar e apagar farmácias cadastradas'),
+              trailing: Icon(Icons.local_pharmacy, color: Colors.green[700], size: 30),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ListarFarmacias()), // Navegação direta
+              ),
+            ),
           ),
-          ListTile(
-            title: const Text('Gerir Medicamentos'),
-            subtitle: const Text('Adicionar, remover, ajustar estoque'),
-            trailing: const Icon(Icons.medical_services),
-            onTap: () => Navigator.pushNamed(context, '/gerirMedicamentos'),
+          // --- Gerir Medicamentos ---
+          Card( // Adicionado Card para melhor visual
+            elevation: 4,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(16),
+              title: const Text('Gerir Medicamentos', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Adicionar, remover e ajustar estoque de medicamentos'),
+              trailing: Icon(Icons.medical_services, color: Colors.green[700], size: 30),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ListarMedicamentos()), // Navegação direta
+              ),
+            ),
           ),
-          ListTile(
-            title: const Text('Gerir Usuários'),
-            subtitle: const Text('Editar, adicionar ou apagar usuários'),
-            trailing: const Icon(Icons.group),
-            onTap: () => Navigator.pushNamed(context, '/gerirUsuarios'),
+          // --- Gerir Usuários ---
+          Card( // Adicionado Card para melhor visual
+            elevation: 4,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(16),
+              title: const Text('Gerir Usuários', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Visualizar, editar, adicionar e apagar contas de usuários e administradores'),
+              trailing: Icon(Icons.group, color: Colors.green[700], size: 30),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => GerirUsuarios()), // Navegação direta
+              ),
+            ),
           ),
         ],
       ),

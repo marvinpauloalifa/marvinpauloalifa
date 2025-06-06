@@ -18,12 +18,12 @@ class FirestoreService {
 
   // ---------- FARMÁCIAS ----------
   Future<void> saveFarmacia(FarmaciaModel farmacia) async {
-    await _db.collection('farmacias').doc(farmacia.id).set(farmacia.toMap());
+    await _db.collection('farmacias').doc(farmacia.id).set(farmacia.toFirestore());
   }
 
-  Future<List<FarmaciaModel>> getAllFarmacias() async {
-    final snapshot = await _db.collection('farmacias').get();
-    return snapshot.docs.map((doc) => FarmaciaModel.fromMap(doc.data(), doc.id)).toList();
+  Future<List<FarmaciaModel>> getAllFarmacias() async { // Retorno não-nullable é geralmente melhor para listas
+    final snapshot = await _db.collection('farmacias').get(); // Usando _firestore consistentemente
+    return snapshot.docs.map((doc) => FarmaciaModel.fromFirestore(doc)).toList(); // .toList() no final
   }
 
   // ---------- MEDICAMENTOS ----------
