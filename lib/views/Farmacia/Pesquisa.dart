@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import '../../viewmodels/UserViewModel.dart';
+import '/viewmodels/UserViewModel.dart';
 
 class Pesquisa {
   static Future<void> realizarPesquisaMedicamento(
@@ -10,8 +10,8 @@ class Pesquisa {
       UserViewModel viewModel,
       Function(String) mostrarMensagem,
       ) async {
-    viewModel.limparMarcadores();
-    viewModel.removerMarcadorUsuario(); // Remove marcador do usuário
+    viewModel.clearAndResetMarkers();
+    viewModel.clearAndResetMarkers(); // Remove marcador do usuário
 
     final firestore = FirebaseFirestore.instance;
     final query = nomeMedicamento.trim();
@@ -45,11 +45,11 @@ class Pesquisa {
         final quantidade = medData['quantidade'] ?? 0;
 
         if ((estado == "disponível" || estado == "disponivel") && preco > 0 && quantidade > 0) {
-          viewModel.addMarker(
+          viewModel.addFarmacyMarker(
             farmaciaId,
             latitude,
             longitude,
-            "$nomeFarmacia\n${medData['nome']} - $quantidade un. - $preco MT",
+            "$nomeFarmacia\n${medData['nome']} - $quantidade un. - $preco MT",''
           );
           encontrou = true;
         }
@@ -84,11 +84,11 @@ class Pesquisa {
             (estado == "disponível" || estado == "disponivel") &&
             quantidade > 0 &&
             preco > 0) {
-          viewModel.addMarker(
+          viewModel.addFarmacyMarker(
             id,
             latitude,
             longitude,
-            "$nome\n${med['nome']} - $quantidade un. - ${med['preco']} MT",
+            "$nome\n${med['nome']} - $quantidade un. - ${med['preco']} MT",''
           );
           encontrou = true;
           break;
